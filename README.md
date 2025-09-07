@@ -1,5 +1,15 @@
 # Streamlit SVG View
 
+[![PyPI version](https://badge.fury.io/py/streamlit-svg-view.svg)](https://badge.fury.io/py/streamlit-svg-view)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/streamlit-svg-view)](https://pypi.org/project/streamlit-svg-view/)
+[![Python](https://img.shields.io/pypi/pyversions/streamlit-svg-view.svg)](https://pypi.org/project/streamlit-svg-view/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://streamlit.io)
+[![GitHub last commit](https://img.shields.io/github/last-commit/kazuar/streamlit-svg-view)](https://github.com/kazuar/streamlit-svg-view/commits/)
+[![GitHub issues](https://img.shields.io/github/issues/kazuar/streamlit-svg-view)](https://github.com/kazuar/streamlit-svg-view/issues)
+[![GitHub stars](https://img.shields.io/github/stars/kazuar/streamlit-svg-view?style=social)](https://github.com/kazuar/streamlit-svg-view)
+
 A Streamlit custom component for displaying SVG animations with interactive play, pause, and restart controls.
 
 ## Features
