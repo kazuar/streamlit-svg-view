@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "streamlit-svg-view"
-version = "0.1.0"
+version = "0.2.0"
 description = "A Streamlit custom component for displaying SVG animations with interactive play, pause, and restart controls"
 readme = "README.md"
 license = {text = "MIT"}
