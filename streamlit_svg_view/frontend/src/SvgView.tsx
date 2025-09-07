@@ -35,7 +35,27 @@ function SvgView(props: ComponentProps) {
     if (svgRef.current) {
       svgElementRef.current = svgRef.current.querySelector('svg')
       if (svgElementRef.current) {
-        setAnimationState(isPlaying)
+        // Start animations by default but respect the current state
+        setTimeout(() => {
+          // Small delay to ensure SVG is fully rendered
+          if (svgElementRef.current) {
+            // Ensure animations are initially running
+            const animations = svgElementRef.current.querySelectorAll('animate, animateTransform, animateMotion')
+            animations.forEach((anim: Element) => {
+              const animElement = anim as SVGAnimationElement
+              try {
+                animElement.beginElement()
+              } catch (e) {
+                // Animation might already be auto-started
+              }
+            })
+            
+            // Apply the current play state
+            if (!isPlaying) {
+              setAnimationState(false)
+            }
+          }
+        }, 100)
       }
     }
   }
@@ -43,71 +63,119 @@ function SvgView(props: ComponentProps) {
   const setAnimationState = (playing: boolean) => {
     if (!svgElementRef.current) return
 
-    const animations = svgElementRef.current.querySelectorAll('animate, animateTransform, animateMotion')
-    
-    animations.forEach((anim: Element) => {
-      const animElement = anim as SVGAnimationElement
-      if (playing) {
-        try {
-          animElement.beginElement()
-        } catch (e) {
-          // If beginElement fails, the animation might already be running
-        }
-      } else {
-        try {
-          animElement.endElement()
-        } catch (e) {
-          // If endElement fails, try pausing instead
-          if ('pauseAnimations' in svgElementRef.current!) {
-            (svgElementRef.current as any).pauseAnimations()
-          }
-        }
-      }
-    })
+    // The key insight: SVG SMIL animations need different handling than CSS animations
+    console.log(`Setting animation state to: ${playing ? 'playing' : 'paused'}`)
 
-    // For SVG elements that support pauseAnimations/unpauseAnimations
-    if (svgElementRef.current) {
+    if (playing) {
+      // Method 1: Try SVG unpause first
       try {
-        if (playing && 'unpauseAnimations' in svgElementRef.current) {
+        if (typeof (svgElementRef.current as any).unpauseAnimations === 'function') {
           (svgElementRef.current as any).unpauseAnimations()
-        } else if (!playing && 'pauseAnimations' in svgElementRef.current) {
-          (svgElementRef.current as any).pauseAnimations()
+          console.log('Used SVG unpauseAnimations')
+          return
         }
       } catch (e) {
-        // Fallback for browsers that don't support these methods
+        console.log('SVG unpauseAnimations failed:', e)
       }
+      
+      // Method 2: Clear any pause styling
+      svgElementRef.current.style.animationPlayState = 'running'
+      svgElementRef.current.style.visibility = 'visible'
+      
+    } else {
+      // Method 1: Try SVG pause first  
+      try {
+        if (typeof (svgElementRef.current as any).pauseAnimations === 'function') {
+          (svgElementRef.current as any).pauseAnimations()
+          console.log('Used SVG pauseAnimations')
+          return
+        }
+      } catch (e) {
+        console.log('SVG pauseAnimations failed:', e)
+      }
+      
+      // Method 2: Since SMIL pause doesn't work reliably, show user feedback
+      // and inform them that true pause/resume isn't supported
+      console.log('SVG pause not fully supported - animations will restart when resumed')
+      
+      // Visual feedback: temporarily dim the SVG
+      svgElementRef.current.style.opacity = '0.5'
+      setTimeout(() => {
+        if (svgElementRef.current) {
+          svgElementRef.current.style.opacity = '1'
+        }
+      }, 200)
     }
   }
 
   const restartAnimations = () => {
     if (!svgElementRef.current) return
 
+    // First, ensure animations are unpaused
+    if ('unpauseAnimations' in svgElementRef.current) {
+      try {
+        (svgElementRef.current as any).unpauseAnimations()
+      } catch (e) {
+        // Ignore
+      }
+    }
+
+    // Method 1: Use setCurrentTime if available (most reliable)
+    if ('setCurrentTime' in svgElementRef.current) {
+      try {
+        (svgElementRef.current as any).setCurrentTime(0)
+        return // Success, no need for fallbacks
+      } catch (e) {
+        // Continue to fallback methods
+      }
+    }
+
+    // Method 2: End and restart individual animations
     const animations = svgElementRef.current.querySelectorAll('animate, animateTransform, animateMotion')
     
     animations.forEach((anim: Element) => {
       const animElement = anim as SVGAnimationElement
       try {
+        // End current animation
         animElement.endElement()
+        // Restart after a brief delay
         setTimeout(() => {
-          animElement.beginElement()
+          try {
+            animElement.beginElement()
+          } catch (e) {
+            // Fallback: clone and replace the element to reset it
+            const parent = animElement.parentNode
+            const newAnim = animElement.cloneNode(true) as SVGAnimationElement
+            if (parent) {
+              parent.replaceChild(newAnim, animElement)
+              setTimeout(() => {
+                try {
+                  newAnim.beginElement()
+                } catch (e) {
+                  // Final fallback failed
+                }
+              }, 10)
+            }
+          }
         }, 10)
       } catch (e) {
-        // Fallback: try to restart by manipulating the animation
-        const beginValue = animElement.getAttribute('begin')
-        if (beginValue) {
-          animElement.setAttribute('begin', beginValue)
+        // If endElement fails, try direct restart
+        try {
+          animElement.beginElement()
+        } catch (e2) {
+          // All methods failed for this animation
         }
       }
     })
 
-    // For SVG root element restart
-    if (svgElementRef.current && 'setCurrentTime' in svgElementRef.current) {
-      try {
-        (svgElementRef.current as any).setCurrentTime(0)
-      } catch (e) {
-        // Browser doesn't support setCurrentTime
+    // Clear any CSS pause states
+    const allElements = svgElementRef.current.querySelectorAll('*')
+    allElements.forEach((element: Element) => {
+      const el = element as HTMLElement
+      if (el.style) {
+        el.style.animationPlayState = 'running'
       }
-    }
+    })
   }
 
   const updateStreamlit = () => {
@@ -120,7 +188,10 @@ function SvgView(props: ComponentProps) {
   const handleTogglePlayPause = () => {
     const newPlayingState = !isPlaying
     setIsPlaying(newPlayingState)
-    setAnimationState(newPlayingState)
+    
+    // Apply animation state change without re-rendering SVG
+    setTimeout(() => setAnimationState(newPlayingState), 0)
+    
     Streamlit.setComponentValue({
       is_playing: newPlayingState,
       action: newPlayingState ? 'play' : 'pause'
@@ -129,7 +200,10 @@ function SvgView(props: ComponentProps) {
 
   const handleRestart = () => {
     setIsPlaying(true)
-    restartAnimations()
+    
+    // Apply restart without triggering re-render
+    setTimeout(() => restartAnimations(), 0)
+    
     Streamlit.setComponentValue({
       is_playing: true,
       action: 'restart'
@@ -139,7 +213,7 @@ function SvgView(props: ComponentProps) {
   useEffect(() => {
     setupSvgElement()
     updateStreamlit()
-  }, [svg_content, isPlaying])
+  }, [svg_content]) // Only re-run when SVG content changes, not when play state changes
 
   useEffect(() => {
     Streamlit.setFrameHeight(height + 20) // Just padding space
