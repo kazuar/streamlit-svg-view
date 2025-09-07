@@ -1,0 +1,11 @@
+include README.md
+include LICENSE
+recursive-include streamlit_svg_view/frontend/build *
+recursive-exclude streamlit_svg_view/frontend/node_modules *
+recursive-exclude streamlit_svg_view/frontend/src *
+exclude streamlit_svg_view/frontend/package-lock.json
+exclude streamlit_svg_view/frontend/tsconfig.json
+exclude streamlit_svg_view/frontend/webpack.config.js
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude .DS_Store
